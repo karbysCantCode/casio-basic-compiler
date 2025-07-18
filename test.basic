@@ -1,6 +1,19 @@
-variable1 = 10;
-function1();
-function2(argument1,argument2);
-variable2 = "string content";
-variable3 = 'string content';
-variable4 = 'string \nbanana';
+// This is a test program
+
+int main() {
+    int x = -42;
+    float y = -3.14;
+    float z = 0.5;
+    float w = -0.25;
+
+    string message = "Hello\nWorld!";
+    char quote = '\'';
+
+    x = x - 1;   // subtraction, not negative
+    y = -x;      // negative identifier
+    //z--;         // decrement operator
+
+    if (x <= 100 && y != 0.0) {
+        print(message);
+    }
+}

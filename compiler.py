@@ -1,4 +1,5 @@
 from enum import Enum
+import copy
 
 
 buildFolderPath = 'Build/'
@@ -7,6 +8,31 @@ sourceFilePath = 'D:/Python projects/casio basic compiler/test.basic'
 #sourceFilePath = input("Absolute source file path: ")
 
 class Compiler:
+  KEYWORDTOKENS = [
+    'if',
+    'else',
+    'elseif',
+    'while',
+    'continue',
+    'break',
+    'return',
+    'for'
+
+  ]
+  TYPETOKENS = [
+    'int',
+    'float',
+    'char',
+    'string',
+    'intA',
+    'floatA',
+    'void',
+    'bool'
+  ]
+  KEYWORDLITERALTOKENS = [
+    'true',
+    'false'
+  ]
   DELIMITERTOKENS = [
     '(',
     ')',
@@ -63,7 +89,12 @@ class Compiler:
     '==',
     '!=',
     '&&',
-    '||'
+    '||',
+    '+=',
+    '-=',
+    '*=',
+    '/=',
+    '%='
   ]
   DOUBLEDLONETOKENS = [
     '=',
@@ -71,7 +102,12 @@ class Compiler:
     '>',
     '|',
     '!',
-    '&'
+    '&',
+    '+',
+    '-',
+    '*',
+    '/',
+    '%'
   ]
   ESCAPECHARACTERLOOKUP = {
     '\\\'' : '\'',
@@ -94,15 +130,23 @@ class Compiler:
       NUMBER = 1
       STRING = 2
       IDENTIFIER = 3
-      ASSIGNMENTOPERATOR = 4
-      COMPARISONOPERATOR = 5
-      DELIMITER = 6
+      ASSIGNMENT = 4
+      COMPARISON = 5
+      OPERATOR = 6
+      DELIMITER = 7
+      KEYWORD = 8
+      LITERALKEYWORD = 9
+      TYPEKEYWORD = 10
 
 
 
-    def __init__(self, content : str, type : Type):
+    def __init__(self, content : str, type : Type, lineNumber : int):
       self.content = content
       self.type = type
+      self.lineNumber = lineNumber
+
+    def __str__(self):
+      return f'TYPE: {self.type.name}\nLINE: {self.lineNumber}\nCONTENT: "{self.content}"\n'
 
   def __init__(self):
     print("compiler init")
@@ -112,14 +156,81 @@ class Compiler:
     self.sourceFilePath = sourceFilePath
 
   def compileSourceFile(self):
-    rawTokenArray = self._ParseFileToRawTokens(self.sourceFilePath)
-    taggedTokenArray = self._tagTokens(rawTokenArray)
+    firstPassTokenArray = self._ParseFileToRawTokens(self.sourceFilePath)
+    taggedTokenArray = self._tagTokens(firstPassTokenArray)
+    secondTaggedTokenArray = self._tagTokens(taggedTokenArray)
+    unsolvedTokens = []
+    for token in secondTaggedTokenArray:
+      if token.type == self.Token.Type.UNSOLVED:
+        unsolvedTokens.append(token)
 
-  def _tagTokens(self, rawTokenArray : list) -> list:
+    print(f'\nUnsolved tokens: {len(unsolvedTokens)}')
+    for token in unsolvedTokens:
+      print(token)
+
+    target = ''
+    for token in secondTaggedTokenArray:
+      target += token.content
+    print(target)
+
+  @staticmethod
+  def _isNumber(number : str) -> bool:
+      try:
+        float(number)
+        return True
+      except:
+        return False
+      
+  def _tagTokens(self, tokenArray : list) -> list:
+    def tagToken(token : Compiler.Token) -> Compiler.Token:
+      nonlocal tokensLeftToSkip
+      if (token.type == self.Token.Type.UNSOLVED or token.type == self.Token.Type.NUMBER) and tokenIndex != len(localTokenArray)-1:
+        if self._isNumber(token.content) or token.type == self.Token.Type.NUMBER and tokenIndex + 2 < len(localTokenArray):
+          if (localTokenArray[tokenIndex+1].content == '.' 
+              and localTokenArray[tokenIndex+2].content.isdecimal()): # eg 3.13 (. is delim and 13 would be unsolved)
+            token.content += '.' + localTokenArray[tokenIndex+2].content
+            tokensLeftToSkip = 2
+          token.type = self.Token.Type.NUMBER
+
+        elif token.content in self.KEYWORDLITERALTOKENS:
+          token.type = self.Token.Type.LITERALKEYWORD
+
+        elif token.content in self.KEYWORDTOKENS:
+          token.type = self.Token.Type.KEYWORD
+
+        elif token.content in self.TYPETOKENS:
+          token.type = self.Token.Type.TYPEKEYWORD
+
+        elif token.content in self.ASSIGNMENTTOKENS:
+          token.type = self.Token.Type.ASSIGNMENT
+        
+        elif token.content in self.COMPARISONTOKENS:
+          token.type = self.Token.Type.COMPARISON
+        
+        elif token.content in self.OPERATORTOKENS:
+          token.type = self.Token.Type.OPERATOR
+
+        elif (localTokenArray[tokenIndex+1].type == self.Token.Type.ASSIGNMENT 
+              or localTokenArray[tokenIndex+1].type == self.Token.Type.DELIMITER 
+              or localTokenArray[tokenIndex+1].type == self.Token.Type.COMPARISON): #eg identifier = 10 - solving identifier
+          token.type = self.Token.Type.IDENTIFIER
+
+      return token
+    
+    localTokenArray = tokenArray
     taggedArray = []
-    for rawToken in rawTokenArray:
 
-    return
+    tokensLeftToSkip = 0
+    for tokenIndex, token in enumerate(localTokenArray):
+      if tokensLeftToSkip > 0:
+        tokensLeftToSkip -= 1
+        continue
+
+      token = tagToken(token)
+            
+      taggedArray.append(self.Token(token.content, token.type, token.lineNumber))
+
+    return taggedArray
 
   def _ParseFileToRawTokens(self, filePath) -> list:
     sourceFileLines = []
@@ -131,117 +242,175 @@ class Compiler:
     except:
       print("Failed to read source file")
 
-    currentTokenIsString = False
-    for line in sourceFileLines:
-      for character in line:
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    lastCharSpace = False
-    currentTokenIsString = False
-    backslashing = False
-
-    tokens = []
+    tokenArray = []
     currentTokenFragment = ''
-    currentDoubledToken = ''
-    currentBackslashToken = ''
+    backslashBuffer = ''
+    stringOpeningCharacter = ''
+    currentTokenIsString = False
+    lastCharacterWasSpace = False
+    lastCharacterWasBackslash = False
+    lastCharacterWasDouble = False
 
-    def appendCurrentToken(tokenType = self.Token.Type.UNSOLVED):
+    currentLineNumber = -1
+
+
+    def appendToken(tokenType = self.Token.Type.UNSOLVED):
       nonlocal currentTokenFragment
       if currentTokenFragment != '':
-            tokens.append(self.Token(currentTokenFragment, tokenType))
-            currentTokenFragment = ''
+        tokenArray.append(self.Token(currentTokenFragment, tokenType, currentLineNumber))
+        currentTokenFragment = ''
 
-    for line in sourceFileLines: 
-      for char in line:
-        if (char == ' ' or char == '\n') and not currentTokenIsString:
-          lastCharSpace = True
-          continue     
+    def checkCharacter(character, nextCharacter):
+      nonlocal currentTokenFragment
+      nonlocal currentTokenIsString
+      nonlocal lastCharacterWasDouble
+      nonlocal lastCharacterWasBackslash
+      nonlocal backslashBuffer
+      nonlocal lastCharacterWasSpace
+      nonlocal stringOpeningCharacter
+      
+      localLastCharWasSpace = lastCharacterWasSpace
 
-        if char == "'" or char == '"':
-          if currentTokenIsString:
-            appendCurrentToken(self.Token.Type.STRING)
+      if not currentTokenIsString:
+
+        if (character == ' ' or character == '\n'): #if char is space and not in a string
+          lastCharacterWasSpace = True
+          return
+        else:
+          lastCharacterWasSpace = False
+
+        if character not in self.DOUBLEDLONETOKENS and lastCharacterWasDouble: #if last was a double char, but not a double, append that double
+          if currentTokenFragment in self.OPERATORTOKENS:
+            appendToken(self.Token.Type.OPERATOR)
+          elif currentTokenFragment in self.COMPARISONTOKENS:
+            appendToken(self.Token.Type.COMPARISON)
+          elif currentTokenFragment in self.ASSIGNMENTTOKENS:
+            appendToken(self.Token.Type.ASSIGNMENT)
           else:
-            appendCurrentToken()
-          currentTokenIsString = not currentTokenIsString
-          continue
+            appendToken()
+
+          lastCharacterWasDouble = False
+
+        if character == '-' and self._isNumber(nextCharacter):
+          appendToken()
+          currentTokenFragment += character
+          return
+
+        if character in self.DOUBLEDLONETOKENS:
+          if lastCharacterWasDouble:
+            lastCharacterWasDouble = False
+            currentTokenFragment += character
+            if currentTokenFragment in self.DOUBLELONETOKENS:
+              if currentTokenFragment in self.OPERATORTOKENS:
+                appendToken(self.Token.Type.OPERATOR)
+              elif currentTokenFragment in self.COMPARISONTOKENS:
+                appendToken(self.Token.Type.COMPARISON)
+              elif currentTokenFragment in self.ASSIGNMENTTOKENS:
+                appendToken(self.Token.Type.ASSIGNMENT)
+              else:
+                appendToken()
+              return
+          else:
+            appendToken()
+            lastCharacterWasDouble = True
+            currentTokenFragment = character
+            return
+
+        if character in self.DELIMITERTOKENS:
+          appendToken()
+          currentTokenFragment += character
+          appendToken(self.Token.Type.DELIMITER)
+          return
         
+        if character in self.ASSIGNMENTTOKENS:
+          appendToken()
+          currentTokenFragment += character
+          appendToken(self.Token.Type.ASSIGNMENT)
+          return
+
+        if character in self.OPERATORTOKENS:
+          appendToken()
+          currentTokenFragment += character
+          appendToken(self.Token.Type.OPERATOR)
+          return
+
+        if character in self.COMPARISONTOKENS:
+          appendToken()
+          currentTokenFragment += character
+          appendToken(self.Token.Type.COMPARISON)
+          return
+
+      if character == '\\' and not lastCharacterWasBackslash:
+        lastCharacterWasBackslash = True
+        backslashBuffer = '\\'
+        return
+      
+      if lastCharacterWasBackslash:
+        lastCharacterWasBackslash = False
+        backslashBuffer += character
+        currentTokenFragment += self.ESCAPECHARACTERLOOKUP[backslashBuffer]
+        return
+      
+      if (character == "'" or character == '"') and (not currentTokenIsString or character == stringOpeningCharacter):
         if currentTokenIsString:
-          if char == '\\' and not backslashing: #if backslash
-            backslashing = True
-            currentBackslashToken = '\\'
-            continue
+          currentTokenIsString = False
+          stringOpeningCharacter = ''
+          appendToken(self.Token.Type.STRING)
+        else:
+          currentTokenIsString = True
+          stringOpeningCharacter = character
+          #currentTokenFragment += character #dont add the apostrophes to the string?
+        return
+      
+      if localLastCharWasSpace:
+        appendToken()
+      currentTokenFragment += character
 
-          if backslashing:
-            backslashing = False
-            currentBackslashToken += char
-            currentTokenFragment += self.ESCAPECHARACTERLOOKUP[currentBackslashToken] #add the actual char of the backslash to the current token
-            currentBackslashToken = ''
-            continue
-          
+      # if currentTokenIsString: # if string, dont proceed
+      #   return
+      # if len(tokenArray) == 0:
+      #   return
+      
+      # if (lastCharacterWasSpace 
+      #     or tokenArray[-1].type == self.Token.Type.DELIMITER 
+      #     or tokenArray[-1].type == self.Token.Type.ASSIGNMENT
+      #     or tokenArray[-1].type == self.Token.Type.COMPARISON 
+      #     or tokenArray[-1].type == self.Token.Type.OPERATOR): # if at token boundary
+      #   if currentTokenFragment in self.KEYWORDTOKENS:
+      #     appendToken(self.Token.Type.KEYWORD)
+      #   elif currentTokenFragment in self.KEYWORDLITERALTOKENS:
+      #     appendToken(self.Token.Type.LITERALKEYWORD)
+      #   elif currentTokenFragment in self.TYPETOKENS:
+      #     appendToken(self.Token.Type.TYPEKEYWORD)
 
-          currentTokenFragment += char
-          continue
+      
 
-        if lastCharSpace:
-          appendCurrentToken()
-          lastCharSpace = False
 
-        if char in self.LONETOKENS:
-          appendCurrentToken()
-          tokens.append(char)
-          continue
 
-        if char in self.DOUBLEDLONETOKENS:
-          if currentDoubledToken != '': #second of a potential double token
-            temp = currentDoubledToken + char
-            if temp in self.DOUBLELONETOKENS: #should be true every time
-              tokens.append(temp)
-            
-            currentDoubledToken = ''
-            currentToken = ''
 
-          else: #first of a potential double token
-            appendCurrentToken()
-            currentDoubledToken = char
-            currentToken = char
-          
-          continue
-
-        elif currentDoubledToken != '': #non double token and last was a doubled token
-          appendCurrentToken()
-          currentDoubledToken = ''
+    for lineNumber, line in enumerate(sourceFileLines):
+      currentLineNumber = lineNumber+1 # so it can be refrenced by appendToken()
+      for charIndex, character in enumerate(line):
+        if character == '/' and currentTokenFragment == '/' and not currentTokenIsString:
+          currentTokenFragment = ''
+          print(f'comment on line: {currentLineNumber}')
+          break
         
-
-        currentTokenFragment += char
+        if charIndex+1 < len(line):
+          checkCharacter(character, line[charIndex+1])
+        else:
+          checkCharacter(character, '')
     
-    appendCurrentToken()
+    appendToken()
 
-    return tokens
+    return tokenArray
+
+
+
+
+
+
+
 
 
 compiler = Compiler()
