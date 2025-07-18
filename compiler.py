@@ -50,7 +50,9 @@ class Compiler:
     '-=',
     '*=',
     '/=',
-    '%='
+    '%=',
+    '--',
+    '++'
   ]
   OPERATORTOKENS = [
     '+',
@@ -94,7 +96,9 @@ class Compiler:
     '-=',
     '*=',
     '/=',
-    '%='
+    '%=',
+    '--',
+    '++'
   ]
   DOUBLEDLONETOKENS = [
     '=',
@@ -123,7 +127,7 @@ class Compiler:
     '\\v' : '\v'
 
   }
- 
+  
   class Token:
     class Type(Enum):
       UNSOLVED = 0
@@ -168,10 +172,13 @@ class Compiler:
     for token in unsolvedTokens:
       print(token)
 
-    target = ''
+    # target = ''
+    # for token in secondTaggedTokenArray:
+    #   target += token.content
+    # print(target)
+
     for token in secondTaggedTokenArray:
-      target += token.content
-    print(target)
+      print(token)
 
   @staticmethod
   def _isNumber(number : str) -> bool:
@@ -182,15 +189,28 @@ class Compiler:
         return False
       
   def _tagTokens(self, tokenArray : list) -> list:
-    def tagToken(token : Compiler.Token) -> Compiler.Token:
+    def tagToken(token : Compiler.Token) -> list:
       nonlocal tokensLeftToSkip
-      if (token.type == self.Token.Type.UNSOLVED or token.type == self.Token.Type.NUMBER) and tokenIndex != len(localTokenArray)-1:
-        if self._isNumber(token.content) or token.type == self.Token.Type.NUMBER and tokenIndex + 2 < len(localTokenArray):
-          if (localTokenArray[tokenIndex+1].content == '.' 
-              and localTokenArray[tokenIndex+2].content.isdecimal()): # eg 3.13 (. is delim and 13 would be unsolved)
-            token.content += '.' + localTokenArray[tokenIndex+2].content
-            tokensLeftToSkip = 2
+      indexesToSkip = []
+      if (token.type == self.Token.Type.UNSOLVED or token.type == self.Token.Type.NUMBER) and tokenIndex + 2 < len(localTokenArray):
+        if ((self._isNumber(token.content)
+            or token.type == self.Token.Type.NUMBER)
+            and not (tokenIndex - 2 < 0)):
+          
           token.type = self.Token.Type.NUMBER
+          
+          if (self._isNumber(localTokenArray[tokenIndex+2].content) #if need to collapse next 2 for decimal
+              and localTokenArray[tokenIndex+1].content == '.'):
+            token.content += '.' + localTokenArray[tokenIndex+2].content
+            indexesToSkip.append(tokenIndex+1)
+            indexesToSkip.append(tokenIndex+2)
+
+          if (localTokenArray[tokenIndex-2].type == self.Token.Type.ASSIGNMENT
+              and localTokenArray[tokenIndex-1].content == '-'):
+            token.content = '-' + token.content
+            indexesToSkip.append(tokenIndex-1)
+
+          
 
         elif token.content in self.KEYWORDLITERALTOKENS:
           token.type = self.Token.Type.LITERALKEYWORD
@@ -210,15 +230,24 @@ class Compiler:
         elif token.content in self.OPERATORTOKENS:
           token.type = self.Token.Type.OPERATOR
 
-        elif (localTokenArray[tokenIndex+1].type == self.Token.Type.ASSIGNMENT 
-              or localTokenArray[tokenIndex+1].type == self.Token.Type.DELIMITER 
-              or localTokenArray[tokenIndex+1].type == self.Token.Type.COMPARISON): #eg identifier = 10 - solving identifier
-          token.type = self.Token.Type.IDENTIFIER
+        elif not (tokenIndex-1 < 0):
+          nextTokenType = localTokenArray[tokenIndex+1].type
+          lastTokenType = localTokenArray[tokenIndex-1].type
+          if (nextTokenType == self.Token.Type.ASSIGNMENT 
+              or nextTokenType == self.Token.Type.DELIMITER 
+              or nextTokenType == self.Token.Type.COMPARISON
+              or nextTokenType == self.Token.Type.OPERATOR
+              or lastTokenType == self.Token.Type.ASSIGNMENT 
+              or lastTokenType == self.Token.Type.DELIMITER 
+              or lastTokenType == self.Token.Type.COMPARISON
+              or lastTokenType == self.Token.Type.OPERATOR): #eg identifier = 10 - solving identifier
+            token.type = self.Token.Type.IDENTIFIER
 
-      return token
+      return [token, indexesToSkip]
     
     localTokenArray = tokenArray
     taggedArray = []
+    tokenIndexesToSkip = set()
 
     tokensLeftToSkip = 0
     for tokenIndex, token in enumerate(localTokenArray):
@@ -226,11 +255,19 @@ class Compiler:
         tokensLeftToSkip -= 1
         continue
 
-      token = tagToken(token)
+      token, tokensToSkip = tagToken(token)
+      tokenIndexesToSkip.update(tokensToSkip)
             
       taggedArray.append(self.Token(token.content, token.type, token.lineNumber))
 
-    return taggedArray
+    finalArray = []
+    for tokenIndex, token in enumerate(localTokenArray):
+      if tokenIndex in tokenIndexesToSkip:
+        continue
+
+      finalArray.append(token)
+
+    return finalArray
 
   def _ParseFileToRawTokens(self, filePath) -> list:
     sourceFileLines = []
@@ -299,6 +336,7 @@ class Compiler:
         if character in self.DOUBLEDLONETOKENS:
           if lastCharacterWasDouble:
             lastCharacterWasDouble = False
+            localTokenFragement = currentTokenFragment
             currentTokenFragment += character
             if currentTokenFragment in self.DOUBLELONETOKENS:
               if currentTokenFragment in self.OPERATORTOKENS:
@@ -309,7 +347,12 @@ class Compiler:
                 appendToken(self.Token.Type.ASSIGNMENT)
               else:
                 appendToken()
-              return
+            else:
+              currentTokenFragment = localTokenFragement
+              appendToken()
+              currentTokenFragment = character
+              appendToken()
+            return
           else:
             appendToken()
             lastCharacterWasDouble = True
@@ -391,10 +434,10 @@ class Compiler:
     for lineNumber, line in enumerate(sourceFileLines):
       currentLineNumber = lineNumber+1 # so it can be refrenced by appendToken()
       for charIndex, character in enumerate(line):
-        if character == '/' and currentTokenFragment == '/' and not currentTokenIsString:
+        if charIndex + 1 < len(line) and character == '/' and line[charIndex + 1] == '/' and not currentTokenIsString:
           currentTokenFragment = ''
           print(f'comment on line: {currentLineNumber}')
-          break
+          break  # Skip rest of line
         
         if charIndex+1 < len(line):
           checkCharacter(character, line[charIndex+1])

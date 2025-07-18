@@ -11,7 +11,7 @@ int main() {
 
     x = x - 1;   // subtraction, not negative
     y = -x;      // negative identifier
-    //z--;         // decrement operator
+    z--;         // decrement operator 
 
     if (x <= 100 && y != 0.0) {
         print(message);
