@@ -40,7 +40,9 @@ class Compiler:
     '!',
     '&'
   ]
-  
+  ESCAPECHARACTERLOOKUP = {
+    '\'' = '\''
+  }
   def __init__(self):
     print("compiler init")
     self.sourceFilePath = ''
