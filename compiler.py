@@ -7,6 +7,45 @@ sourceFilePath = 'D:/Python projects/casio basic compiler/test.basic'
 #sourceFilePath = input("Absolute source file path: ")
 
 class Compiler:
+  DELIMITERTOKENS = [
+    '(',
+    ')',
+    '[',
+    ']',
+    '{',
+    '}',
+    ';',
+    ',',
+    '.'
+  ]
+  ASSIGNMENTTOKENS = [
+    '=',
+    '+=',
+    '-=',
+    '*=',
+    '/=',
+    '%='
+  ]
+  OPERATORTOKENS = [
+    '+',
+    '-',
+    '*',
+    '/',
+    '%',
+    '||',
+    '&&',
+    '!'
+  ]
+  COMPARISONTOKENS = [
+    '&',
+    '|',
+    '<=',
+    '>=',
+    '==',
+    '!=',
+    '<',
+    '>'
+  ]
   LONETOKENS = [
     '(',
     ')',
@@ -14,12 +53,6 @@ class Compiler:
     ']',
     '{',
     '}',
-    '+',
-    '-',
-    '*',
-    '/',
-    '%',
-    '^',
     ';',
     ',',
     '.'
@@ -41,8 +74,36 @@ class Compiler:
     '&'
   ]
   ESCAPECHARACTERLOOKUP = {
-    '\'' = '\''
+    '\\\'' : '\'',
+    '\\\"' : '\"',
+    '\\?' : '?',
+    '\\\\' : '\\',
+    '\\a' : '\a',
+    '\\b' : '\b',
+    '\\f' : '\f',
+    '\\n' : '\n',
+    '\\r' : '\r',
+    '\\t' : '\t',
+    '\\v' : '\v'
+
   }
+ 
+  class Token:
+    class Type(Enum):
+      UNSOLVED = 0
+      NUMBER = 1
+      STRING = 2
+      IDENTIFIER = 3
+      ASSIGNMENTOPERATOR = 4
+      COMPARISONOPERATOR = 5
+      DELIMITER = 6
+
+
+
+    def __init__(self, content : str, type : Type):
+      self.content = content
+      self.type = type
+
   def __init__(self):
     print("compiler init")
     self.sourceFilePath = ''
@@ -51,9 +112,16 @@ class Compiler:
     self.sourceFilePath = sourceFilePath
 
   def compileSourceFile(self):
-    rawTokens = self._ParseFileToRawTokens(self.sourceFilePath)
+    rawTokenArray = self._ParseFileToRawTokens(self.sourceFilePath)
+    taggedTokenArray = self._tagTokens(rawTokenArray)
 
-  def _ParseFileToRawTokens(self, filePath):
+  def _tagTokens(self, rawTokenArray : list) -> list:
+    taggedArray = []
+    for rawToken in rawTokenArray:
+
+    return
+
+  def _ParseFileToRawTokens(self, filePath) -> list:
     sourceFileLines = []
 
     try:
@@ -63,38 +131,50 @@ class Compiler:
     except:
       print("Failed to read source file")
 
+    currentTokenIsString = False
+    for line in sourceFileLines:
+      for character in line:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     lastCharSpace = False
     currentTokenIsString = False
     backslashing = False
 
     tokens = []
-    currentToken = ''
-    currentDoubledToken = ''
-
-    def appendCurrentToken():
-        sourceFileLines = []
-
-    try:
-      with open(filePath, 'r') as file:
-        sourceFileLines = file.readlines()
-
-    except:
-      print("Failed to read source file")
-
-    lastCharSpace = False
-    currentTokenIsString = False
-    backslashing = False
-
-    tokens = []
-    currentToken = ''
+    currentTokenFragment = ''
     currentDoubledToken = ''
     currentBackslashToken = ''
 
-    def appendCurrentToken():
-      nonlocal currentToken
-      if currentToken != '':
-            tokens.append(currentToken)
-            currentToken = ''
+    def appendCurrentToken(tokenType = self.Token.Type.UNSOLVED):
+      nonlocal currentTokenFragment
+      if currentTokenFragment != '':
+            tokens.append(self.Token(currentTokenFragment, tokenType))
+            currentTokenFragment = ''
 
     for line in sourceFileLines: 
       for char in line:
@@ -103,18 +183,28 @@ class Compiler:
           continue     
 
         if char == "'" or char == '"':
-          appendCurrentToken()
+          if currentTokenIsString:
+            appendCurrentToken(self.Token.Type.STRING)
+          else:
+            appendCurrentToken()
           currentTokenIsString = not currentTokenIsString
           continue
         
         if currentTokenIsString:
+          if char == '\\' and not backslashing: #if backslash
+            backslashing = True
+            currentBackslashToken = '\\'
+            continue
+
           if backslashing:
             backslashing = False
             currentBackslashToken += char
-            currentToken += #add the actual char of the backslash to the current token
+            currentTokenFragment += self.ESCAPECHARACTERLOOKUP[currentBackslashToken] #add the actual char of the backslash to the current token
+            currentBackslashToken = ''
+            continue
           
 
-          currentToken += char
+          currentTokenFragment += char
           continue
 
         if lastCharSpace:
@@ -147,11 +237,13 @@ class Compiler:
           currentDoubledToken = ''
         
 
-        currentToken += char
+        currentTokenFragment += char
     
     appendCurrentToken()
 
     return tokens
 
 
-
+compiler = Compiler()
+compiler.setSourceFilePath(sourceFilePath)
+compiler.compileSourceFile()

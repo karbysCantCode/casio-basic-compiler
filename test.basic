@@ -3,3 +3,4 @@ function1();
 function2(argument1,argument2);
 variable2 = "string content";
 variable3 = 'string content';
+variable4 = 'string \nbanana';
