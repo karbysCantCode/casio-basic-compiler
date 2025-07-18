@@ -1,7 +1,7 @@
 // This is a test program
 
 int main() {
-    int x = -42;
+    int x = 42;
     float y = -3.14;
     float z = 0.5;
     float w = -0.25;

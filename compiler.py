@@ -1,5 +1,7 @@
+from __future__ import annotations
 from enum import Enum
 import copy
+from typing import Optional
 
 
 buildFolderPath = 'Build/'
@@ -8,6 +10,13 @@ sourceFilePath = 'D:/Python projects/casio basic compiler/test.basic'
 #sourceFilePath = input("Absolute source file path: ")
 
 class Compiler:
+  SCOPEOWNINGKEYWORDS = [
+    'if',
+    'else',
+    'elseif',
+    'while',
+    'for'
+  ]
   KEYWORDTOKENS = [
     'if',
     'else',
@@ -128,6 +137,33 @@ class Compiler:
 
   }
   
+  class Scope:
+    def __init__(self, startLine = -1, parentScope : Optional[Compiler.Scope] = None):
+      self.tokens = []
+      self.parentScope = parentScope
+      self.tokensOwningChildrenScopes = {} # token : indexInSelf.Tokens
+      self.startLine = startLine
+      #self.localIdentifiers = []
+
+    def addToken(self, token : Compiler.Token):
+      if token.type == Compiler.Token.Type.DELIMITER and token.content == '{':
+        self.tokensOwningChildrenScopes[token] = len(self.tokens)
+      self.tokens.append(token)
+
+    def print(self):
+      print("Scope print:")
+      targetString = ''
+      scopesToPrint = []
+      for token in self.tokens:
+        targetString += token.content
+        if token in self.tokensOwningChildrenScopes:
+          scopesToPrint.append(token.ownedScope)
+      print(targetString)
+
+      for scope in scopesToPrint:
+        scope.print()
+
+
   class Token:
     class Type(Enum):
       UNSOLVED = 0
@@ -148,6 +184,7 @@ class Compiler:
       self.content = content
       self.type = type
       self.lineNumber = lineNumber
+      self.ownedScope: Optional[Compiler.Scope] = None
 
     def __str__(self):
       return f'TYPE: {self.type.name}\nLINE: {self.lineNumber}\nCONTENT: "{self.content}"\n'
@@ -172,13 +209,11 @@ class Compiler:
     for token in unsolvedTokens:
       print(token)
 
-    # target = ''
-    # for token in secondTaggedTokenArray:
-    #   target += token.content
-    # print(target)
+    scope, unclosedScope = self._buildScopes(secondTaggedTokenArray)
+    if unclosedScope:
+      print(f"UNCLOSED SCOPE - CAUSE MAY BEGIN ON LINE: {unclosedScope.startLine}")
 
-    for token in secondTaggedTokenArray:
-      print(token)
+    scope.print()
 
   @staticmethod
   def _isNumber(number : str) -> bool:
@@ -187,7 +222,33 @@ class Compiler:
         return True
       except:
         return False
-      
+
+  def _buildScopes(self, tokenArray : list) -> tuple:
+    globalScope = self.Scope()
+    scopeStack = [globalScope]
+    
+    for token in tokenArray:
+
+      if token.type == self.Token.Type.DELIMITER:
+        if token.content == '{':
+          scopeStack[-1].addToken(token)
+          scopeStack.append(self.Scope(token.lineNumber,scopeStack[-1]))
+          token.ownedScope = scopeStack[-1]
+        elif token.content == '}':
+          scopeStack.pop()
+          scopeStack[-1].addToken(token)
+          continue
+        else:
+          scopeStack[-1].addToken(token)
+      else:
+        scopeStack[-1].addToken(token)
+    
+    if len(scopeStack) > 1:
+      print("SCOPE NOT CLOSED")
+      return (globalScope,scopeStack[-1])
+    
+    return (globalScope,None)
+
   def _tagTokens(self, tokenArray : list) -> list:
     def tagToken(token : Compiler.Token) -> list:
       nonlocal tokensLeftToSkip
