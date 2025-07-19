@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum
 import copy
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 from pathlib import Path
 
 
@@ -186,6 +186,10 @@ class Compiler:
         self.allocatedIds.remove(id)
         self.freedIds.append(id)
   
+  # class ASTNodes:
+  #   class VariableDeclaration:
+  #     def __init__(self, type : str, value,)
+
   class Scope:
     def __init__(self, startLine = -1, parentScope : Optional[Compiler.Scope] = None):
       self.tokens = []
@@ -222,6 +226,8 @@ class Compiler:
 
       for scope in scopesToPrint:
         scope.print()
+
+
 
   class Token:
     class Type(Enum):
@@ -333,6 +339,132 @@ class Compiler:
             seenFiles.add(filePath)
 
     return filePaths
+  
+  
+
+  def _dothing(self, tokenArray : list[Compiler.Token]):
+    class VariableTypes(Enum):
+      INT = 1
+      FLOAT = 2
+      STRING = 3
+      CLASS = 4
+      STRUCT = 5
+
+    class SyntaxPatternBase:
+      pass
+
+    class VariableDeclaration(SyntaxPatternBase):
+      def __init__(self, type : VariableTypes, identifier : str, definingExpression : Optional[Any] = None):
+        self.type = type
+        self.identifier = identifier
+        self.definingExpression = definingExpression
+      
+    class BinaryExpression(SyntaxPatternBase):
+      def __init__(self, left, right, operator):
+        self.left = left
+        self.right = right
+        self.operator = operator
+
+      
+    class SYNTAXPATTERNTYPES(Enum):
+      VARIABLEDECLARATION = 1
+      BINARYEXPRESSION = 2
+
+
+    #def doesSyntaxPatternRequire()
+
+    def getVariableType(token : Compiler.Token) -> Optional[VariableTypes]:
+      match token.content:
+        case 'int':
+          return VariableTypes.INT
+        case 'float':
+          return VariableTypes.FLOAT
+        case 'string':
+          return VariableTypes.STRING
+        case 'class':
+          return VariableTypes.CLASS
+        case 'struct':
+          return VariableTypes.STRUCT
+      return None
+    
+    class expressionBuilder:
+      def __init__(self):
+        pass
+      def build(self, tokenArray : list[Compiler.Token], startingIndex : int):
+        topExpression : Optional[SyntaxPatternBase] = None
+        currentExpression : Optional[SyntaxPatternBase] = None
+        left : Optional[Any] = None
+        right : Optional[Any] = None
+        operator : Optional[str] = None
+        index = startingIndex
+        token = tokenArray[index]
+        delimiterDepth = 1
+        while delimiterDepth > 0:
+          if token.type == Compiler.Token.Type.DELIMITER:
+            match token.content:
+              case ';':
+                delimiterDepth = 0
+              case '(':
+                delimiterDepth += 1
+              case ')':
+                delimiterDepth -= 1
+              case _:
+                print("UNEXPECTED DELIMITER WITH NO KNOWN RESOLVE.")
+                raise NotImplementedError
+          elif token.type == Compiler.Token.Type.NUMBER:
+            print('')
+        
+        if left and right and operator:
+          
+
+              
+
+          index += 1
+          token = tokenArray[index]
+
+    SYNTAXPATTERNS : dict[tuple, SYNTAXPATTERNTYPES] = { #pattern : type
+      (self.Token.Type.TYPEKEYWORD,self.Token.Type.IDENTIFIER) : SYNTAXPATTERNTYPES.VARIABLEDECLARATION,
+      (self.Token.Type.NUMBER,self.Token.Type.OPERATOR,self.Token.Type.NUMBER) : SYNTAXPATTERNTYPES.BINARYEXPRESSION,
+
+    }
+    tokenBuffer : list[Compiler.Token] = []
+    tokenTypeBuffer : list[Compiler.Token.Type] = []
+    lastSyntaxPattern : Optional[SYNTAXPATTERNTYPES] = None
+
+    syntaxPatternArray : list[SyntaxPatternBase] = []
+  
+    for token in tokenArray:
+      tokenBuffer.append(token)
+      tokenTypeBuffer.append(token.type)
+
+      tupledTypeBuffer = tuple(tokenTypeBuffer)
+      if tupledTypeBuffer in SYNTAXPATTERNS:
+        currentSyntaxPattern = SYNTAXPATTERNS[tupledTypeBuffer]
+
+        if lastSyntaxPattern:
+          print("broh")
+        else:
+          match currentSyntaxPattern:
+            case SYNTAXPATTERNTYPES.VARIABLEDECLARATION:
+              varType = getVariableType(tokenBuffer[0])
+              if varType:
+                syntaxPatternArray.append(VariableDeclaration(varType,tokenBuffer[1].content))
+                lastSyntaxPattern = currentSyntaxPattern
+              else:
+                raise NotImplementedError
+                #TODO THROW ERROR
+              tokenBuffer.clear()
+              tokenTypeBuffer.clear()
+
+              
+        
+
+
+
+
+
+      #then compare buffer with patterns to identify
+
 
   def _tokeniseFile(self, filePath : Path) -> list:
     firstPassTokenArray = self._ParseFileToRawTokens(filePath)
