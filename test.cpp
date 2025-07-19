@@ -1,4 +1,6 @@
 // This is a test program
+#include "CASIOBASICCOMPILERHEADERS.h"
+#include "testHeader.hpp"
 
 int main() {
     int x = 42;
@@ -14,6 +16,17 @@ int main() {
     z--;         // decrement operator 
 
     if (x <= 100 && y != 0.0) {
-        print(message);
+        locate(1,1,message);
     }
+
+    banana f;
+    a = 10;
 }
+
+int add(int a, int b) {
+  return a + b;
+}
+
+int the = {
+
+};
