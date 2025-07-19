@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum
 import copy
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Union
 from pathlib import Path
 
 
@@ -387,40 +387,66 @@ class Compiler:
           return VariableTypes.STRUCT
       return None
     
-    class expressionBuilder:
+    class ExpressionBuilder:
+      class ExpressionScope:
+        def __init__(self):
+          self.expressionList : list[Union[ExpressionBuilder.ExpressionScope, Compiler.Token]] = []
+        
+        def append(self, item : Union[ExpressionBuilder.ExpressionScope, Compiler.Token]):
+          self.expressionList.append(item)
+
       def __init__(self):
         pass
       def build(self, tokenArray : list[Compiler.Token], startingIndex : int):
-        topExpression : Optional[SyntaxPatternBase] = None
-        currentExpression : Optional[SyntaxPatternBase] = None
-        left : Optional[Any] = None
-        right : Optional[Any] = None
-        operator : Optional[str] = None
+        groundScope = ExpressionBuilder.ExpressionScope()
+        currentScope = groundScope
+        scopeStack : list[ExpressionBuilder.ExpressionScope] = []
+
+        lastToken : Optional[Compiler.Token] = None
+        functionCalling = False
+
         index = startingIndex
         token = tokenArray[index]
-        delimiterDepth = 1
-        while delimiterDepth > 0:
-          if token.type == Compiler.Token.Type.DELIMITER:
-            match token.content:
-              case ';':
-                delimiterDepth = 0
-              case '(':
-                delimiterDepth += 1
-              case ')':
-                delimiterDepth -= 1
-              case _:
-                print("UNEXPECTED DELIMITER WITH NO KNOWN RESOLVE.")
-                raise NotImplementedError
-          elif token.type == Compiler.Token.Type.NUMBER:
-            print('')
+        while token.content != ';':
+          match token.type:
+            case Compiler.Token.Type.NUMBER: #might need diff handing in future so that why this is here, but TODO nonetheless!
+              currentScope.append(token)
+            case Compiler.Token.Type.IDENTIFIER:
+              currentScope.append(token)
+            case Compiler.Token.Type.STRING:
+              currentScope.append(token)
+            case Compiler.Token.Type.OPERATOR:
+              currentScope.append(token)
+            case Compiler.Token.Type.DELIMITER:
+              match token.content:
+                case '(':
+                  if lastToken and (lastToken.type == Compiler.Token.Type.IDENTIFIER): #function call case
+                    
+
+                  scopeStack.append(currentScope)
+                  newScope = ExpressionBuilder.ExpressionScope()
+                  currentScope.append(newScope)
+                  currentScope = newScope
+                case ')':
+                  if len(scopeStack) > 0:
+                    scopeStack.pop()
+                    currentScope = scopeStack[-1]
+                  else:
+                    print('UNEXPECTED CLOSING BRACKET-WOULD PUT EXPRESSION INTO NON-EXISTANT SCOPE. NO RESOLVE KNOWN')
+                    print("ERRORED ON FOLLOWING TOKEN")
+                    print(token)
+                    raise NotImplementedError
         
-        if left and right and operator:
-          
+        #apply bedmas to order of tokens
+
+
+        index += 1
+        lastToken = token
+        token = tokenArray[index]
+
 
               
 
-          index += 1
-          token = tokenArray[index]
 
     SYNTAXPATTERNS : dict[tuple, SYNTAXPATTERNTYPES] = { #pattern : type
       (self.Token.Type.TYPEKEYWORD,self.Token.Type.IDENTIFIER) : SYNTAXPATTERNTYPES.VARIABLEDECLARATION,
