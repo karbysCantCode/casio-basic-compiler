@@ -60,16 +60,35 @@ class Compiler:
       CRITICAL = auto()
       FATAL = auto()
 
+    SEVERITYCOLORS = {
+      'FATAL' : "\033[38;5;196m",
+      'CRITICAL' : "\033[38;5;201m",
+      'ERROR' : "\033[38;5;202m",
+      'WARNING' : "\033[38;5;220m",
+      'DEBUG' : "\033[38;5;87m",
+      'NOTICE' : "\033[38;5;82m"
+    }
+
     def __init__(self, message : str, severity : Severity, author : str = 'none'):
       self.message : str = message
       self.author : str = author
       self.severity : Compiler.Log.Severity = severity
 
     def __str__(self):
-      return f"""[{self.severity.name}] [{self.author}] {self.message}"""
+      return f"""{self.SEVERITYCOLORS[self.severity.name]}[{self.severity.name}]{"\033[0m"} [{self.author}] {self.message}"""
 
   def __init__(self) -> None:
     self.logs : list[Compiler.Log] = []
+    self.debugLogs : bool = True
+
+    self._logEvent("LOG TEST", Compiler.Log.Severity.FATAL, "COMPILER")
+    self._logEvent("LOG TEST", Compiler.Log.Severity.CRITICAL, "COMPILER")
+    self._logEvent("LOG TEST", Compiler.Log.Severity.ERROR, "COMPILER")
+    self._logEvent("LOG TEST", Compiler.Log.Severity.WARNING, "COMPILER")
+    self._logEvent("LOG TEST", Compiler.Log.Severity.DEBUG, "COMPILER")
+    self._logEvent("LOG TEST", Compiler.Log.Severity.NOTICE, "COMPILER")
+    while not self.logsEmpty():
+      print(self.dequeueLog())
     pass
   
   def dequeueLog(self)->Compiler.Log:
@@ -92,6 +111,8 @@ class Compiler:
     return logs
   
   def _logEvent(self, message : str, severity : Compiler.Log.Severity, author : str = 'none'):
+    if severity == Compiler.Log.Severity.DEBUG and not self.debugLogs:
+      return
     self.logs.append(Compiler.Log(message,severity,author))
   
   def _parseFileToString(self, filePath : Path) -> str:
@@ -248,11 +269,9 @@ class Compiler:
       token = None
 
       if contentIsBuffer and len(characterBuffer) != 0:
-        print(f'appended: {characterBuffer}')
         token = Compiler.Token(type, characterBuffer, line, character-characterBufferLength)
 
       else:
-        print(f'appended: {currentChar}')
         token = Compiler.Token(type, currentChar, line, character-characterBufferLength)
 
       tokenArray.append(token)
@@ -266,7 +285,6 @@ class Compiler:
       currentCharIndex += 1
       character += 1
       currentChar = string[currentCharIndex]
-      print(f'current: {currentChar}, buffer: {characterBuffer}')
       
 
       if currentChar == '\n':
