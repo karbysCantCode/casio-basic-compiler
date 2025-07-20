@@ -185,10 +185,139 @@ class Compiler:
       if id in self.allocatedIds:
         self.allocatedIds.remove(id)
         self.freedIds.append(id)
+  class VariableTypes(Enum):
+    INT = 1
+    FLOAT = 2
+    STRING = 3
+    CLASS = 4
+    STRUCT = 5
+
+  class SyntaxPatternBase:
+    pass
+
+  class VariableDeclaration(SyntaxPatternBase):
+    def __init__(self, type : Compiler.VariableTypes, identifierToken : Compiler.Token, definingExpression : Optional[Any] = None):
+      self.type = type
+      self.identifierToken = identifierToken
+      self.definingExpression = definingExpression
+    
+  class BinaryExpression(SyntaxPatternBase):
+    def __init__(self, left, right, operator):
+      self.left = left
+      self.right = right
+      self.operator = operator
   
-  # class ASTNodes:
-  #   class VariableDeclaration:
-  #     def __init__(self, type : str, value,)
+  class FunctionCallExpression(SyntaxPatternBase):
+    def __init__(self, identifierToken : Compiler.Token, argumentTokens : list[Union[Compiler.ExpressionBuilder.ExpressionScope, Compiler.Token, Compiler.SyntaxPatternBase]]):
+      self.identifier = identifierToken
+      self.argumentTokens = argumentTokens #first element is leftmost argument
+
+    
+  class SYNTAXPATTERNTYPES(Enum):
+    VARIABLEDECLARATION = 1
+    BINARYEXPRESSION = 2
+
+  class ExpressionBuilder:
+      class ExpressionScope:
+        def __init__(self):
+          self.expressionList : list[Union[Compiler.ExpressionBuilder.ExpressionScope, Compiler.Token, Compiler.SyntaxPatternBase]] = []
+        
+        def append(self, item : Union[Compiler.ExpressionBuilder.ExpressionScope, Compiler.Token, Compiler.SyntaxPatternBase]):
+          self.expressionList.append(item)
+
+      def __init__(self):
+        pass
+      @staticmethod
+      def build(tokenArray : list[Compiler.Token], startingIndex : int, finalDelimiter : str = ';', preAssessedFunction : Optional[Compiler.FunctionCallExpression] = None) -> tuple[Compiler.ExpressionBuilder.ExpressionScope, int]:
+        def appendToken(token : Compiler.Token):
+          nonlocal currentArgumentStartIndex
+          if (callingFunction and currentFunctionExpression):
+              if len(argumentTokenBuffer) == 0:
+                currentArgumentStartIndex = index
+                argumentTokenBuffer.append(token)
+              else:
+                currentScope.append(token)
+        
+        groundScope = Compiler.ExpressionBuilder.ExpressionScope()
+        currentScope = groundScope
+        scopeStack : list[Compiler.ExpressionBuilder.ExpressionScope] = []
+
+        lastToken : Optional[Compiler.Token] = None
+        callingFunction = False
+        functionArgumentNumber = 1
+        currentArgumentBuffer : list[Union[Compiler.Token, Compiler.ExpressionBuilder.ExpressionScope,Compiler.FunctionCallExpression]] = []
+        currentFunctionExpression : Optional[Compiler.FunctionCallExpression] = None
+        functionStack : list[Compiler.FunctionCallExpression] = []
+
+        argumentTokenBuffer : list[Compiler.Token] = []
+        currentArgumentStartIndex : int = -1
+
+        if preAssessedFunction:
+          currentScope.append(preAssessedFunction)
+
+        index = startingIndex
+        token = tokenArray[index]
+        while not(token.type == Compiler.Token.Type.DELIMITER and token.content == finalDelimiter):
+          match token.type:
+            case Compiler.Token.Type.LITERAL: #might need diff handing in future so that why this is here, but TODO nonetheless!
+              appendToken(token)
+            case Compiler.Token.Type.IDENTIFIER:
+              appendToken(token)
+            #case Compiler.Token.Type.STRING:
+            #  currentScope.append(token)
+            case Compiler.Token.Type.OPERATOR:
+              if (callingFunction and currentFunctionExpression):
+                expression, newIndex = Compiler.ExpressionBuilder.build(tokenArray, currentArgumentStartIndex, ',')
+                index = newIndex #go to the token at the beginning of the next argument
+                currentArgumentStartIndex = newIndex # ^^^^
+                argumentTokenBuffer.clear() #if there was a literal or identifier waiting in the argument queue
+                currentFunctionExpression.argumentTokens.append(expression)
+              else:
+                currentScope.append(token)
+            case Compiler.Token.Type.DELIMITER:
+              match token.content:
+                case ',':
+                  if callingFunction: #this will only be true if the argument just been is a single token/function because expressions will skip to the next argument
+                    
+                    
+                    
+                case '(':
+                  if lastToken and (lastToken.type == Compiler.Token.Type.IDENTIFIER): #function call case
+                    if callingFunction and currentFunctionExpression: #if already calling a function
+                      functionStack.append(currentFunctionExpression)
+                      newFunctionExpression = Compiler.FunctionCallExpression(lastToken, [])
+                    else:
+                      callingFunction = True
+                      currentFunctionExpression = Compiler.FunctionCallExpression(lastToken, [])
+                      currentScope.append(currentFunctionExpression) #argument tokens will be appended
+                      continue
+
+                  scopeStack.append(currentScope)
+                  newScope = Compiler.ExpressionBuilder.ExpressionScope()
+                  currentScope.append(newScope)
+                  currentScope = newScope
+                case ')':
+                  if callingFunction:
+                    if len(functionStack) > 0:
+
+
+                  if len(scopeStack) > 0:
+                    scopeStack.pop()
+                    currentScope = scopeStack[-1]
+                  else:
+                    print('UNEXPECTED CLOSING BRACKET-WOULD PUT EXPRESSION INTO NON-EXISTANT SCOPE. NO RESOLVE KNOWN')
+                    print("ERRORED ON FOLLOWING TOKEN")
+                    print(token)
+                    raise NotImplementedError
+        
+          #apply bedmas to order of tokens
+
+
+          index += 1
+          lastToken = token
+          token = tokenArray[index]
+        
+        return groundScope, index+1 #index of next token not assessed by expression builder
 
   class Scope:
     def __init__(self, startLine = -1, parentScope : Optional[Compiler.Scope] = None):
@@ -232,8 +361,9 @@ class Compiler:
   class Token:
     class Type(Enum):
       UNSOLVED = 0
-      NUMBER = 1
-      STRING = 2
+      LITERAL = 1
+      ARRAYLITERAL = 2
+      #STRING = 2
       IDENTIFIER = 3
       ASSIGNMENT = 4
       COMPARISON = 5
@@ -249,12 +379,13 @@ class Compiler:
 
 
 
-    def __init__(self, content : str, type : Type, lineNumber : int, columnNumber : int, fileName : str):
-      self.content = content
-      self.type = type
-      self.lineNumber = lineNumber
-      self.columnNumber = columnNumber
-      self.fileName = fileName
+    def __init__(self, type : Type, lineNumber : int, columnNumber : int, fileName : str, content : str = '', arrayContent : list = []):
+      self.content : str = content
+      self.type  : Compiler.Token.Type = type
+      self.lineNumber : int = lineNumber
+      self.columnNumber : int = columnNumber
+      self.fileName : str = fileName
+      self.arrayContent : list = arrayContent
       self.identifierUId = -1
       self.parentScope : Optional[Compiler.Scope] = None
       self.ownedScope: Optional[Compiler.Scope] = None
@@ -343,121 +474,32 @@ class Compiler:
   
 
   def _dothing(self, tokenArray : list[Compiler.Token]):
-    class VariableTypes(Enum):
-      INT = 1
-      FLOAT = 2
-      STRING = 3
-      CLASS = 4
-      STRUCT = 5
-
-    class SyntaxPatternBase:
-      pass
-
-    class VariableDeclaration(SyntaxPatternBase):
-      def __init__(self, type : VariableTypes, identifier : str, definingExpression : Optional[Any] = None):
-        self.type = type
-        self.identifier = identifier
-        self.definingExpression = definingExpression
-      
-    class BinaryExpression(SyntaxPatternBase):
-      def __init__(self, left, right, operator):
-        self.left = left
-        self.right = right
-        self.operator = operator
-
-      
-    class SYNTAXPATTERNTYPES(Enum):
-      VARIABLEDECLARATION = 1
-      BINARYEXPRESSION = 2
-
-
     #def doesSyntaxPatternRequire()
 
-    def getVariableType(token : Compiler.Token) -> Optional[VariableTypes]:
+    def getVariableType(token : Compiler.Token) -> Optional[Compiler.VariableTypes]:
       match token.content:
         case 'int':
-          return VariableTypes.INT
+          return Compiler.VariableTypes.INT
         case 'float':
-          return VariableTypes.FLOAT
+          return Compiler.VariableTypes.FLOAT
         case 'string':
-          return VariableTypes.STRING
+          return Compiler.VariableTypes.STRING
         case 'class':
-          return VariableTypes.CLASS
+          return Compiler.VariableTypes.CLASS
         case 'struct':
-          return VariableTypes.STRUCT
+          return Compiler.VariableTypes.STRUCT
       return None
-    
-    class ExpressionBuilder:
-      class ExpressionScope:
-        def __init__(self):
-          self.expressionList : list[Union[ExpressionBuilder.ExpressionScope, Compiler.Token]] = []
-        
-        def append(self, item : Union[ExpressionBuilder.ExpressionScope, Compiler.Token]):
-          self.expressionList.append(item)
 
-      def __init__(self):
-        pass
-      def build(self, tokenArray : list[Compiler.Token], startingIndex : int):
-        groundScope = ExpressionBuilder.ExpressionScope()
-        currentScope = groundScope
-        scopeStack : list[ExpressionBuilder.ExpressionScope] = []
-
-        lastToken : Optional[Compiler.Token] = None
-        functionCalling = False
-
-        index = startingIndex
-        token = tokenArray[index]
-        while token.content != ';':
-          match token.type:
-            case Compiler.Token.Type.NUMBER: #might need diff handing in future so that why this is here, but TODO nonetheless!
-              currentScope.append(token)
-            case Compiler.Token.Type.IDENTIFIER:
-              currentScope.append(token)
-            case Compiler.Token.Type.STRING:
-              currentScope.append(token)
-            case Compiler.Token.Type.OPERATOR:
-              currentScope.append(token)
-            case Compiler.Token.Type.DELIMITER:
-              match token.content:
-                case '(':
-                  if lastToken and (lastToken.type == Compiler.Token.Type.IDENTIFIER): #function call case
-                    
-
-                  scopeStack.append(currentScope)
-                  newScope = ExpressionBuilder.ExpressionScope()
-                  currentScope.append(newScope)
-                  currentScope = newScope
-                case ')':
-                  if len(scopeStack) > 0:
-                    scopeStack.pop()
-                    currentScope = scopeStack[-1]
-                  else:
-                    print('UNEXPECTED CLOSING BRACKET-WOULD PUT EXPRESSION INTO NON-EXISTANT SCOPE. NO RESOLVE KNOWN')
-                    print("ERRORED ON FOLLOWING TOKEN")
-                    print(token)
-                    raise NotImplementedError
-        
-        #apply bedmas to order of tokens
-
-
-        index += 1
-        lastToken = token
-        token = tokenArray[index]
-
-
-              
-
-
-    SYNTAXPATTERNS : dict[tuple, SYNTAXPATTERNTYPES] = { #pattern : type
-      (self.Token.Type.TYPEKEYWORD,self.Token.Type.IDENTIFIER) : SYNTAXPATTERNTYPES.VARIABLEDECLARATION,
-      (self.Token.Type.NUMBER,self.Token.Type.OPERATOR,self.Token.Type.NUMBER) : SYNTAXPATTERNTYPES.BINARYEXPRESSION,
+    SYNTAXPATTERNS : dict[tuple, Compiler.SYNTAXPATTERNTYPES] = { #pattern : type
+      (self.Token.Type.TYPEKEYWORD,self.Token.Type.IDENTIFIER) : Compiler.SYNTAXPATTERNTYPES.VARIABLEDECLARATION,
+      (self.Token.Type.LITERAL,self.Token.Type.OPERATOR,self.Token.Type.LITERAL) : Compiler.SYNTAXPATTERNTYPES.BINARYEXPRESSION,
 
     }
     tokenBuffer : list[Compiler.Token] = []
     tokenTypeBuffer : list[Compiler.Token.Type] = []
-    lastSyntaxPattern : Optional[SYNTAXPATTERNTYPES] = None
+    lastSyntaxPattern : Optional[Compiler.SYNTAXPATTERNTYPES] = None
 
-    syntaxPatternArray : list[SyntaxPatternBase] = []
+    syntaxPatternArray : list[Compiler.SyntaxPatternBase] = []
   
     for token in tokenArray:
       tokenBuffer.append(token)
@@ -471,10 +513,10 @@ class Compiler:
           print("broh")
         else:
           match currentSyntaxPattern:
-            case SYNTAXPATTERNTYPES.VARIABLEDECLARATION:
+            case Compiler.SYNTAXPATTERNTYPES.VARIABLEDECLARATION:
               varType = getVariableType(tokenBuffer[0])
               if varType:
-                syntaxPatternArray.append(VariableDeclaration(varType,tokenBuffer[1].content))
+                syntaxPatternArray.append(Compiler.VariableDeclaration(varType,tokenBuffer[1]))
                 lastSyntaxPattern = currentSyntaxPattern
               else:
                 raise NotImplementedError
@@ -626,16 +668,17 @@ class Compiler:
         
       
 
-  def _tagTokens(self, tokenArray : list) -> list:
-    def tagToken(token : Compiler.Token) -> list:
+  def _tagTokens(self, tokenArray : list[Compiler.Token]) -> list:
+    def tagToken(token : Compiler.Token) -> tuple[Compiler.Token,list[int]]:
       nonlocal tokensLeftToSkip
-      indexesToSkip = []
-      if (token.type == self.Token.Type.UNSOLVED or token.type == self.Token.Type.NUMBER) and tokenIndex + 2 < len(localTokenArray):
+      indexesToSkip : list[int]= []
+      if (token.type == self.Token.Type.UNSOLVED or token.type == self.Token.Type.LITERAL) and tokenIndex + 2 < len(localTokenArray):
         if ((self._isNumber(token.content)
-            or token.type == self.Token.Type.NUMBER)
+            #or token.type == self.Token.Type.LITERAL
+            )
             and not (tokenIndex - 2 < 0)):
           
-          token.type = self.Token.Type.NUMBER
+          token.type = self.Token.Type.LITERAL
           
           if (self._isNumber(localTokenArray[tokenIndex+2].content) #if need to collapse next 2 for decimal
               and localTokenArray[tokenIndex+1].content == '.'):
@@ -697,9 +740,9 @@ class Compiler:
               or lastTokenType == self.Token.Type.OPERATOR): #eg identifier = 10 - solving identifier
             token.type = self.Token.Type.IDENTIFIER
 
-      return [token, indexesToSkip]
+      return (token, indexesToSkip)
     
-    localTokenArray = tokenArray
+    localTokenArray : list[Compiler.Token] = tokenArray
     taggedArray = []
     tokenIndexesToSkip = set()
 
@@ -712,7 +755,7 @@ class Compiler:
       token, tokensToSkip = tagToken(token)
       tokenIndexesToSkip.update(tokensToSkip)
             
-      taggedArray.append(self.Token(token.content, token.type, token.lineNumber, token.columnNumber, token.fileName))
+      taggedArray.append(self.Token(token.type, token.lineNumber, token.columnNumber, token.fileName,token.content, token.arrayContent))
 
     finalArray = []
     for tokenIndex, token in enumerate(localTokenArray):
@@ -735,6 +778,7 @@ class Compiler:
 
     tokenArray = []
     currentTokenFragment = ''
+    currentTokenArrayFragment : list[Any] = []
     backslashBuffer = ''
     stringOpeningCharacter = ''
     currentTokenIsString = False
@@ -750,12 +794,15 @@ class Compiler:
 
     def appendToken(tokenType = self.Token.Type.UNSOLVED):
       nonlocal currentTokenFragment
+      nonlocal currentTokenArrayFragment
       if currentTokenFragment != '':
-        tokenArray.append(self.Token(currentTokenFragment, tokenType, currentLineNumber, currentColumnNumber-len(currentTokenFragment), filePath.name))
+        tokenArray.append(self.Token(tokenType, currentLineNumber, currentColumnNumber-len(currentTokenFragment), filePath.name, currentTokenFragment, currentTokenArrayFragment))
         currentTokenFragment = ''
+        currentTokenArrayFragment = []
 
     def checkCharacter(character, nextCharacter):
       nonlocal currentTokenFragment
+      nonlocal currentTokenArrayFragment
       nonlocal currentTokenIsString
       nonlocal lastCharacterWasDouble
       nonlocal lastCharacterWasBackslash
@@ -869,7 +916,7 @@ class Compiler:
         if currentTokenIsString:
           currentTokenIsString = False
           stringOpeningCharacter = ''
-          appendToken(self.Token.Type.STRING)
+          appendToken(self.Token.Type.ARRAYLITERAL)
         else:
           appendToken()
           currentTokenIsString = True
@@ -879,7 +926,11 @@ class Compiler:
       
       if localLastCharWasSpace:
         appendToken()
-      currentTokenFragment += character
+
+      if currentTokenIsString:
+        currentTokenArrayFragment.append(character)
+      else:
+        currentTokenFragment += character
 
       
 
