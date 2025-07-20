@@ -75,7 +75,20 @@ class Compiler:
       self.severity : Compiler.Log.Severity = severity
 
     def __str__(self):
-      return f"""{self.SEVERITYCOLORS[self.severity.name]}[{self.severity.name}]{"\033[0m"} [{self.author}] {self.message}"""
+      match self.severity:
+        case Compiler.Log.Severity.FATAL:
+          return f"""   {self.SEVERITYCOLORS[self.severity.name]}[{self.severity.name}]{"\033[0m"} [{self.author}] {self.message}"""
+        case Compiler.Log.Severity.CRITICAL:
+          return f"""{self.SEVERITYCOLORS[self.severity.name]}[{self.severity.name}]{"\033[0m"} [{self.author}] {self.message}"""
+        case Compiler.Log.Severity.ERROR:
+          return f"""   {self.SEVERITYCOLORS[self.severity.name]}[{self.severity.name}]{"\033[0m"} [{self.author}] {self.message}"""
+        case Compiler.Log.Severity.WARNING:
+          return f""" {self.SEVERITYCOLORS[self.severity.name]}[{self.severity.name}]{"\033[0m"} [{self.author}] {self.message}"""
+        case Compiler.Log.Severity.DEBUG:
+          return f"""   {self.SEVERITYCOLORS[self.severity.name]}[{self.severity.name}]{"\033[0m"} [{self.author}] {self.message}"""
+        case Compiler.Log.Severity.NOTICE:
+          return f"""  {self.SEVERITYCOLORS[self.severity.name]}[{self.severity.name}]{"\033[0m"} [{self.author}] {self.message}"""
+      return "LOG HAS NO SEVERITY"
 
   def __init__(self) -> None:
     self.logs : list[Compiler.Log] = []
