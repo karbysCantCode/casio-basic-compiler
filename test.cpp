@@ -21,6 +21,7 @@ int main() {
 
     banana f;
     a = 10;
+    const char e2[] = "sergoijusrg?";
 }
 
 int add(int a, int b) {
