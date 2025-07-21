@@ -22,6 +22,13 @@ class Compiler:
       DIVIDE = auto()
       MODULO = auto()
 
+    class Assigners(Enum):
+      EQUALS = auto()
+      ADDEQ = auto()
+      SUBEQ = auto()
+      MULEQ = auto()
+      DIVEQ = auto()
+
 
     class ASTNode:
       pass
@@ -183,9 +190,35 @@ class Compiler:
       return
     self.logs.append(Compiler.Log(message,severity,author))
   
-  def _considerDirectives(self, tokenArray : list[Compiler.Token])->list[Compiler.Token]:
-    processedTokenArray
-    return
+  def _considerDirectives(self, tokenArray : list[Compiler.Token],directiveTokenIndexes : list[int])->list[Compiler.Token]:
+    tokenArrayToInsertByIndex : dict[int, list[Compiler.Token]] = {}
+    numberOfRemovedTokens = 0
+    for tokenIndex in directiveTokenIndexes:
+      tokenIndex -= numberOfRemovedTokens
+      token = tokenArray[tokenIndex]
+
+      if token.content == '#include':
+        targetFilePath = Path(tokenArray[tokenIndex+1].content).absolute()
+        if targetFilePath.exists():
+          includeTokenArray, includeDirectiveTokenIndexes = self._tokeniseString(targetFilePath)
+          tokenArrayToInsertByIndex[tokenIndex] = self._considerDirectives(includeTokenArray, includeDirectiveTokenIndexes)
+
+        else:
+          self._logEvent(f"File not found for #include at line: {token.line} column: {token.char}", Compiler.Log.Severity.ERROR, 'Directive assessor')
+
+        tokenArray.pop(tokenIndex+1)
+        tokenArray.pop(tokenIndex)
+        numberOfRemovedTokens += 2
+
+    numberOfTokensAdded
+
+    for item in tokenArrayToInsertByIndex.items:
+      indexToInsert = item[0]
+      arrayToInsert = item[1]
+
+
+
+    return tokenArray
   def _buildAST(self, tokenArray : list[Compiler.Token]):
     
 
@@ -193,7 +226,7 @@ class Compiler:
     with open(filePath,'r') as file:
       return file.read()
     
-  def _tokeniseString(self, string : str)->list[Compiler.Token]:
+  def _tokeniseString(self, string : str)->tuple[list[Compiler.Token], list[int]]:
     def nextChar() -> str:
       nonlocal string
       nonlocal currentCharIndex
@@ -251,6 +284,10 @@ class Compiler:
       '\\t' : '\t',
       '\\v' : '\v'
     }
+    DIRECTIVES = [
+      '#include',
+      '#define,'
+    ]
     TYPEKEYWORDS = [
       'int',
       'float',
@@ -331,6 +368,7 @@ class Compiler:
     currentChar : str = ''
     stringOpener : str = ''
 
+    directiveTokenIndexArray : list[int] = []
     tokenArray : list[Compiler.Token] = []
 
     def createToken(type : Compiler.Token.Type, specificType : Compiler.Token.SpecificType = Compiler.Token.SpecificType.NONE, dontClearLast : bool = False, contentIsBuffer : bool = False):
@@ -489,11 +527,14 @@ class Compiler:
             createToken(Compiler.Token.Type.KEYWORD, dontClearLast=True, contentIsBuffer=True)
           case characterBuffer if characterBuffer in TYPEDECLKEYWORDS:
             createToken(Compiler.Token.Type.TYPEDECLKEYWORD, dontClearLast=True, contentIsBuffer=True)
+          case characterBuffer if characterBuffer in DIRECTIVES:
+            directiveTokenIndexArray.append(len(tokenArray))
+            createToken(Compiler.Token.Type.DIRECTIVE, dontClearLast=True, contentIsBuffer=True)
       characterBuffer += currentChar
       characterBufferLength += 1
         
     
-    return tokenArray
+    return tokenArray, directiveTokenIndexArray
 
 
 compiler = Compiler()
