@@ -14,18 +14,52 @@ class Compiler:
       CHAR = auto()
       VOID = auto()
       BOOL = auto()
+
+    class Operators(Enum):
+      ADD = auto()
+      SUBTRACT = auto()
+      MULTIPLY = auto()
+      DIVIDE = auto()
+      MODULO = auto()
+
+
     class ASTNode:
       pass
-
-    class StructDeclaration:
-      def __init__(self, )
     
-    class Literal: #TODO CLASS DELC AUSSPORT
-      def __init__(self, value : Any, type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.ASTNode.StructDeclaration]):
+    class Literal(ASTNode): #TODO CLASS DELC AUSSPORT
+      def __init__(self, value : Any, type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration]):
+        self.value : Any = value
+        self.type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration] = type
 
+    class Expression(ASTNode):
+      def __init__(self, left : Compiler.AST.ASTNode, operator : Compiler.AST.Operators, right : Compiler.AST.ASTNode):
+        self.left : Compiler.AST.ASTNode = left
+        self.right : Compiler.AST.ASTNode = right
+        self.operator : Compiler.AST.Operators = operator
 
-    class VariableDeclaration:
-      def __init__(self, identifier : str, )
+    class Scope(ASTNode):
+      def __init__(self, contents : list[Compiler.AST.ASTNode]):
+        self.contents : list[Compiler.AST.ASTNode] = contents
+
+    class FunctionArgument(ASTNode):
+      def __init__(self, identifier : str, defaultValue : Compiler.AST.ASTNode):
+        self.identifier : str = identifier
+        self.defaultValue : Compiler.AST.ASTNode = defaultValue
+
+    class FunctionDeclaration(ASTNode):
+      def __init__(self, identifier : str, arguments : Union[Compiler.AST.FunctionArgument, list[Compiler.AST.FunctionArgument]]):
+        self.identifier : str = identifier
+        self.arguments : Union[Compiler.AST.FunctionArgument, list[Compiler.AST.FunctionArgument]] = arguments
+
+    class StructDeclaration(ASTNode):
+      def __init__(self, identifier : str):
+        raise NotImplementedError
+      
+    class VariableDeclaration(ASTNode):
+      def __init__(self, identifier : str, value : Compiler.AST.ASTNode):
+        self.identifier : str = identifier
+        self.value : Compiler.AST.ASTNode = value
+        
   class Token:
     class Type(Enum):
       LITERAL = auto()
@@ -39,6 +73,7 @@ class Compiler:
       KEYWORD = auto()
       TYPEDECLKEYWORD = auto()
       DELIMITER = auto()
+      DIRECTIVE = auto()
 
     class SpecificType(Enum):
       NONE = auto()
@@ -148,8 +183,11 @@ class Compiler:
       return
     self.logs.append(Compiler.Log(message,severity,author))
   
+  def _considerDirectives(self, tokenArray : list[Compiler.Token])->list[Compiler.Token]:
+    processedTokenArray
+    return
   def _buildAST(self, tokenArray : list[Compiler.Token]):
-    print('no')
+    
 
   def _parseFileToString(self, filePath : Path) -> str:
     with open(filePath,'r') as file:
