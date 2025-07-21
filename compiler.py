@@ -6,6 +6,26 @@ from pathlib import Path
 
 class Compiler:
 
+  class AST:
+
+    class PrimitiveTypes(Enum):
+      INT = auto()
+      FLOAT = auto()
+      CHAR = auto()
+      VOID = auto()
+      BOOL = auto()
+    class ASTNode:
+      pass
+
+    class StructDeclaration:
+      def __init__(self, )
+    
+    class Literal: #TODO CLASS DELC AUSSPORT
+      def __init__(self, value : Any, type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.ASTNode.StructDeclaration]):
+
+
+    class VariableDeclaration:
+      def __init__(self, identifier : str, )
   class Token:
     class Type(Enum):
       LITERAL = auto()
@@ -128,6 +148,9 @@ class Compiler:
       return
     self.logs.append(Compiler.Log(message,severity,author))
   
+  def _buildAST(self, tokenArray : list[Compiler.Token]):
+    print('no')
+
   def _parseFileToString(self, filePath : Path) -> str:
     with open(filePath,'r') as file:
       return file.read()
