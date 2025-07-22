@@ -200,27 +200,38 @@ class Compiler:
       if token.content == '#include':
         targetFilePath = Path(tokenArray[tokenIndex+1].content).absolute()
         if targetFilePath.exists():
-          includeTokenArray, includeDirectiveTokenIndexes = self._tokeniseString(targetFilePath)
+          includeTokenArray, includeDirectiveTokenIndexes = self._tokeniseString(self._parseFileToString(targetFilePath))
           tokenArrayToInsertByIndex[tokenIndex] = self._considerDirectives(includeTokenArray, includeDirectiveTokenIndexes)
 
         else:
-          self._logEvent(f"File not found for #include at line: {token.line} column: {token.char}", Compiler.Log.Severity.ERROR, 'Directive assessor')
+          self._logEvent(f"File not found for #include at line: {token.line} column: {token.char}", Compiler.Log.Severity.ERROR, '_considerDirectives')
 
         tokenArray.pop(tokenIndex+1)
         tokenArray.pop(tokenIndex)
         numberOfRemovedTokens += 2
 
-    numberOfTokensAdded
+    lastInsertionIndex = 0
+    originalTokenArrayWithIncludedArrays = []
 
-    for item in tokenArrayToInsertByIndex.items:
+    for item in tokenArrayToInsertByIndex.items():
       indexToInsert = item[0]
       arrayToInsert = item[1]
+      
 
+      includeAppendedIndexArray = tokenArray[lastInsertionIndex:indexToInsert]
+      includeAppendedIndexArray.extend(arrayToInsert)
 
+      originalTokenArrayWithIncludedArrays.extend(includeAppendedIndexArray)
 
-    return tokenArray
+      lastInsertionIndex = indexToInsert
+
+    originalTokenArrayWithIncludedArrays.extend(tokenArray[lastInsertionIndex:len(tokenArray)])
+
+    return originalTokenArrayWithIncludedArrays
+  
+
   def _buildAST(self, tokenArray : list[Compiler.Token]):
-    
+    print('Nah!')
 
   def _parseFileToString(self, filePath : Path) -> str:
     with open(filePath,'r') as file:
@@ -235,7 +246,7 @@ class Compiler:
         return string[currentCharIndex+1]
       return ''
     
-    def lastChar() -> str:
+    def lastChar() -> str: #brooo this doesnt even get used
       nonlocal string
       nonlocal currentCharIndex
 
@@ -380,15 +391,18 @@ class Compiler:
 
       token = None
 
-      if contentIsBuffer and len(characterBuffer) != 0:
+      if contentIsBuffer: #  and len(characterBuffer) != 0
         token = Compiler.Token(type, characterBuffer, line, character-characterBufferLength)
 
       else:
         token = Compiler.Token(type, currentChar, line, character-characterBufferLength)
 
-      tokenArray.append(token)
+      if token.content != '':
+        tokenArray.append(token)
+
       characterBuffer = ''
       characterBufferLength = 0
+      
 
     line = 1
     character = 0
@@ -440,7 +454,7 @@ class Compiler:
             character = 0
             continue
           else:
-            self._logEvent("NO NEWLINE AFTER SINGLE LINE COMMENT, ASSUMED END OF FILE", Compiler.Log.Severity.WARNING, 'String Tokeniser')
+            self._logEvent("NO NEWLINE AFTER SINGLE LINE COMMENT, ASSUMED END OF FILE", Compiler.Log.Severity.WARNING, '_tokeniseString')
             break
         elif currentChar == '/' and nextChar() == '*':
           endOfMultilineComment = string.find('*/',currentCharIndex)
@@ -455,7 +469,7 @@ class Compiler:
             currentCharIndex = endOfMultilineComment + 1
             continue
           else:
-            self._logEvent("NO END TO MULILINE COMMENT, ASSUMED END OF FILE", Compiler.Log.Severity.WARNING, 'String Tokeniser')
+            self._logEvent("NO END TO MULILINE COMMENT, ASSUMED END OF FILE", Compiler.Log.Severity.WARNING, '_tokeniseString')
             break
 
         elif (currentChar.isdigit() or (currentChar == '-' and nextChar().isdigit())) and len(characterBuffer) == 0:
@@ -527,11 +541,13 @@ class Compiler:
             createToken(Compiler.Token.Type.KEYWORD, dontClearLast=True, contentIsBuffer=True)
           case characterBuffer if characterBuffer in TYPEDECLKEYWORDS:
             createToken(Compiler.Token.Type.TYPEDECLKEYWORD, dontClearLast=True, contentIsBuffer=True)
-          case characterBuffer if characterBuffer in DIRECTIVES:
-            directiveTokenIndexArray.append(len(tokenArray))
-            createToken(Compiler.Token.Type.DIRECTIVE, dontClearLast=True, contentIsBuffer=True)
       characterBuffer += currentChar
       characterBufferLength += 1
+
+      if characterBuffer in DIRECTIVES:
+        self._logEvent(f'directive token at line {line}, char {character}', Compiler.Log.Severity.DEBUG, '_tokeniseString')
+        directiveTokenIndexArray.append(len(tokenArray))
+        createToken(Compiler.Token.Type.DIRECTIVE, dontClearLast=True, contentIsBuffer=True)
         
     
     return tokenArray, directiveTokenIndexArray
@@ -539,8 +555,9 @@ class Compiler:
 
 compiler = Compiler()
 fileString = compiler._parseFileToString(Path('test2.cpp').absolute())
-tokenArray = compiler._tokeniseString(fileString)
-for token in tokenArray:
+tokenArray, directiveIndexes = compiler._tokeniseString(fileString)
+finalTokenArray = compiler._considerDirectives(tokenArray, directiveIndexes)
+for token in finalTokenArray:
   print(token)
 
 while not compiler.logsEmpty():
