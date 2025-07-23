@@ -21,6 +21,7 @@ int main() {
 
     banana f;
     a = 10;
+    float two = float(a);
     const char e2[] = "sergoijusrg?";
 }
 

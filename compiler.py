@@ -38,11 +38,24 @@ class Compiler:
         self.value : Any = value
         self.type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration] = type
 
-    class Expression(ASTNode):
+    class AssignmentExpression(ASTNode):
       def __init__(self, left : Compiler.AST.ASTNode, operator : Compiler.AST.Operators, right : Compiler.AST.ASTNode):
         self.left : Compiler.AST.ASTNode = left
         self.right : Compiler.AST.ASTNode = right
         self.operator : Compiler.AST.Operators = operator
+
+    class CallExpression(ASTNode):
+      def __init__(self, objectIdentifier : str, 
+                   methodIdentifier : str, 
+                   arguments : Union[
+                     Compiler.AST.Literal,
+                     Compiler.AST.ExpressionStatement,
+                     list[]
+        
+      ])
+    class ExpressionStatement(ASTNode):
+      def __init__(self, expression : Union[Compiler.AST.Expression, Compiler.AST.AssignmentExpression]):
+        self.expression = expression
 
     class Scope(ASTNode):
       def __init__(self, contents : list[Compiler.AST.ASTNode]):
@@ -62,10 +75,13 @@ class Compiler:
       def __init__(self, identifier : str):
         raise NotImplementedError
       
+    
+      
     class VariableDeclaration(ASTNode):
-      def __init__(self, identifier : str, value : Compiler.AST.ASTNode):
+      def __init__(self, identifier : str, value : Compiler.AST.ASTNode, type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration]):
         self.identifier : str = identifier
         self.value : Compiler.AST.ASTNode = value
+        self.type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration] = type
         
   class Token:
     class Type(Enum):
@@ -231,7 +247,24 @@ class Compiler:
   
 
   def _buildAST(self, tokenArray : list[Compiler.Token]):
-    print('Nah!')
+    def lastToken():
+      return tokenArray[tokenIndex-1]
+    def nextToken():
+      return tokenArray[tokenIndex+1]
+    
+    tokenIndex = 0
+    while tokenIndex < len(tokenArray):
+      currentToken = tokenArray[tokenIndex]
+
+      match currentToken.type:
+        case Compiler.Token.Type.IDENTIFIER: # will only be when: variable = 29; (already init)
+                                             # or objectName.method();
+
+          
+
+
+      tokenArray += 1
+
 
   def _parseFileToString(self, filePath : Path) -> str:
     with open(filePath,'r') as file:
