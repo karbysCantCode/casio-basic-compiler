@@ -34,9 +34,9 @@ class Compiler:
       pass
     
     class Literal(ASTNode): #TODO CLASS DELC AUSSPORT
-      def __init__(self, value : Any, type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration]):
+      def __init__(self, value : Any, type : Compiler.AST.PrimitiveTypes):
         self.value : Any = value
-        self.type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration] = type
+        self.type : Compiler.AST.PrimitiveTypes = type
 
     class AssignmentExpression(ASTNode):
       def __init__(self, left : Compiler.AST.ASTNode, operator : Compiler.AST.Operators, right : Compiler.AST.ASTNode):
@@ -44,17 +44,22 @@ class Compiler:
         self.right : Compiler.AST.ASTNode = right
         self.operator : Compiler.AST.Operators = operator
 
+    class MemberExpression(ASTNode):
+      def __init__(self, objectIdentifier : str, propertyIdentifier : str):
+        self.objectIdentifier = objectIdentifier
+        self.propertyIdentifier = propertyIdentifier
+                   
     class CallExpression(ASTNode):
-      def __init__(self, objectIdentifier : str, 
-                   methodIdentifier : str, 
-                   arguments : Union[
-                     Compiler.AST.Literal,
-                     Compiler.AST.ExpressionStatement,
-                     list[]
+      def __init__(self, calleeIdentifier : str, 
+                   arguments : list[Compiler.AST.Literal,
+                                    Compiler.AST.ExpressionStatement]
+        ):
+
+        self.calleeIdentifier = calleeIdentifier
+        self.arguments = arguments
         
-      ])
     class ExpressionStatement(ASTNode):
-      def __init__(self, expression : Union[Compiler.AST.Expression, Compiler.AST.AssignmentExpression]):
+      def __init__(self, expression : Union[Compiler.AST.CallExpression, Compiler.AST.AssignmentExpression]):
         self.expression = expression
 
     class Scope(ASTNode):
@@ -66,16 +71,39 @@ class Compiler:
         self.identifier : str = identifier
         self.defaultValue : Compiler.AST.ASTNode = defaultValue
 
-    class FunctionDeclaration(ASTNode):
-      def __init__(self, identifier : str, arguments : Union[Compiler.AST.FunctionArgument, list[Compiler.AST.FunctionArgument]]):
+    class MemberVariable(ASTNode):
+      def __init__(self, identifier : str, )
+    class MethodDefinition(ASTNode):
+      def __init__(self, methodIdentifier : str, definingScope : Compiler.AST.Scope):
+        self.methodIdentifier : str = methodIdentifier
+        self.definingScope : Compiler.AST.Scope = definingScope
+
+    class MethodDeclaration(ASTNode):
+      def __init__(self, identifier : str, 
+                   returnType : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration],
+                   definingScope : Compiler.AST.Scope,  
+                   methodDefinition : Optional[Compiler.AST.MethodDefinition] = None, 
+                   objectIdentifier : Optional[str] = None, 
+                   arguments : Optional[Union[Compiler.AST.FunctionArgument, 
+                                              list[Compiler.AST.FunctionArgument]]] = None):
         self.identifier : str = identifier
-        self.arguments : Union[Compiler.AST.FunctionArgument, list[Compiler.AST.FunctionArgument]] = arguments
+        self.returnType : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration] = returnType
+        self.definingScope : Compiler.AST.Scope = definingScope
+        self.objectIdentifier : Optional[str] = objectIdentifier
+        self.methodDefinition : Optional[Compiler.AST.MethodDefinition] = methodDefinition
+        self.arguments : Optional[Union[Compiler.AST.FunctionArgument, 
+                                        list[Compiler.AST.FunctionArgument]]] = arguments
+    class FunctionDeclaration(ASTNode):
+      def __init__(self, identifier : str, returnType : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration], definingScope : Compiler.AST.Scope,  arguments : Optional[Union[Compiler.AST.FunctionArgument, list[Compiler.AST.FunctionArgument]]] = None):
+        self.identifier : str = identifier
+        self.returnType : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration] = returnType
+        self.arguments : Optional[Union[Compiler.AST.FunctionArgument, list[Compiler.AST.FunctionArgument]]] = arguments
+        self.definingScope : Compiler.AST.Scope = definingScope
 
     class StructDeclaration(ASTNode):
       def __init__(self, identifier : str):
         raise NotImplementedError
       
-    
       
     class VariableDeclaration(ASTNode):
       def __init__(self, identifier : str, value : Compiler.AST.ASTNode, type : Union[Compiler.AST.PrimitiveTypes, Compiler.AST.StructDeclaration]):
@@ -259,6 +287,8 @@ class Compiler:
       match currentToken.type:
         case Compiler.Token.Type.IDENTIFIER: # will only be when: variable = 29; (already init)
                                              # or objectName.method();
+                                             # or typecasting eg: type(var)
+
 
           
 
